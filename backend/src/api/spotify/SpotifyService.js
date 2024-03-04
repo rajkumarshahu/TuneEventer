@@ -3,10 +3,9 @@ const qs = require("qs");
 
 class SpotifyService {
 	constructor() {
-		this.clientId = "011c21309b674aadaf1ea09c09da535d";
-		this.clientSecret = "e90b9b368c244b77b2e35e2045b9c737";
-		this.token =
-			"Bearer BQDamQGFgzZNJ9mfTDy45pPSasHfVtcGjZvoFSBVoMCNyPh0MP_L4TDtRfj0FAaxEpRBq8XuIW3VcTExsjH9IKvME7wAs-72q24RWbCcxtyxB-tKCag";
+		this.clientId = process.env.SPOTIFY_CLIENT_ID;
+		this.clientSecret = process.env.SPOTIFY_CLIENT_SECRETE;
+		this.token = process.env.SPOTIFY_TOKEN;
 	}
 
 	async authenticate() {

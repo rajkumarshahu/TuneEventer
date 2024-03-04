@@ -2,7 +2,7 @@ const axios = require("axios");
 
 class TicketmasterService {
 	constructor() {
-		this.apiKey = "ZmYsajwAhq3A5dbVNAMxniqMyuGE9NGR";
+		this.apiKey = process.env.TICKETMASTER_API;
 	}
 
 	async fetchEvents(artistName) {
