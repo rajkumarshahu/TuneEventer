@@ -2,20 +2,20 @@ const express = require("express");
 const path = require("path");
 const colors = require("colors");
 const dotenv = require("dotenv");
-// const connectDB = require("./config/db");
+const connectDB = require("./src/api/database/DatabaseService.js");
 const cors = require("cors");
 
 const SpotifyService = new require("./src/api/spotify/SpotifyService.js");
 const TicketmasterService = new require(
 	"./src/api/ticketmaster/TicketmasterService"
 );
-// const DatabaseService = new require("./src/api/database/DatabaseService");
+const DatabaseService = new require("./src/api/database/DatabaseService");
 
 // Load env variables
 dotenv.config({ path: "./config/config.env" });
 
 // Connect to database
-// connectDB();
+connectDB();
 
 const app = express();
 
@@ -36,7 +36,7 @@ app.use(function (req, res, next) {
 	next();
 });
 
-// @desc    Logs request to console
+// Logs request to console
 const logger = (req, res, next) => {
 	console.log(
 		`${req.method} ${req.protocol}://${req.get("host")}${req.originalUrl}`
