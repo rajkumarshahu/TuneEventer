@@ -2,7 +2,6 @@ const express = require("express");
 const path = require("path");
 const colors = require("colors");
 const dotenv = require("dotenv");
-const connectDB = require("./src/api/database/DatabaseService.js");
 const cors = require("cors");
 
 const SpotifyService = new require("./src/api/spotify/SpotifyService.js");
@@ -15,7 +14,7 @@ const DatabaseService = new require("./src/api/database/DatabaseService");
 dotenv.config({ path: "./config/config.env" });
 
 // Connect to database
-connectDB();
+DatabaseService();
 
 const app = express();
 
@@ -51,7 +50,6 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const spotifyService = new SpotifyService();
 const ticketmasterService = new TicketmasterService();
-// const databaseService = new DatabaseService();
 
 // Routes
 app.get("/api/events/:artistName", async (req, res) => {
