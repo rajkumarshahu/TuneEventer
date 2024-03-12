@@ -4,11 +4,9 @@ const colors = require("colors");
 const dotenv = require("dotenv");
 const cors = require("cors");
 
-const SpotifyService = new require("./src/api/spotify/SpotifyService.js");
-const TicketmasterService = new require(
-	"./src/api/ticketmaster/TicketmasterService"
-);
-const DatabaseService = new require("./src/api/database/DatabaseService");
+const SpotifyService = require("./src/api/spotify/SpotifyService.js");
+const TicketmasterService = require("./src/api/ticketmaster/TicketmasterService");
+const DatabaseService = require("./src/api/database/DatabaseService");
 
 // Load env variables
 dotenv.config({ path: "./config/config.env" });
@@ -18,48 +16,37 @@ DatabaseService();
 
 const app = express();
 
-app.use(function (req, res, next) {
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header(
-		"Access-Control-Allow-Headers",
-		"Origin, X-Requested-With, Content-Type, Accept, Authorization"
-	);
-	if (req.method === "OPTIONS") {
-		res.header(
-			"Access-Control-Allow-Headers",
-			"Origin, X-Requested-With, Content-Type, Accept, Authorization"
-		);
-		res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH");
-		return res.status(200).json({});
-	}
+// Middleware for CORS
+app.use(cors());
+
+// Middleware for logging requests to the console
+app.use((req, res, next) => {
+	console.log(colors.cyan(`${req.method} ${req.originalUrl}`));
 	next();
 });
 
-// Logs request to console
-const logger = (req, res, next) => {
-	console.log(
-		`${req.method} ${req.protocol}://${req.get("host")}${req.originalUrl}`
-	);
-	next();
-};
-
-app.use(logger);
-
-// Set static folder
+// Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, "public")));
 
+// Initialize services
 const spotifyService = new SpotifyService();
 const ticketmasterService = new TicketmasterService();
 
-// Routes
+// API route for fetching events
 app.get("/api/events/:artistName", async (req, res) => {
-	const { artistName } = req.params;
-	const events = await ticketmasterService.fetchEvents(artistName);
-	res.json(events);
+	try {
+		const { artistName } = req.params;
+		const events = await ticketmasterService.fetchEvents(artistName);
+		res.json(events);
+	} catch (error) {
+		console.error(colors.red(`Error: ${error.message}`));
+		res.status(500).send("Server Error");
+	}
 });
 
 const PORT = process.env.PORT || 3000;
 
+// Start the server
 const server = app.listen(
 	PORT,
 	console.log(
