@@ -22,7 +22,7 @@ const app = express();
 // Middleware for CORS
 app.use(
 	cors({
-		origin: "http://localhost:3001",
+		origin: "http://localhost:3000",
 	})
 );
 
