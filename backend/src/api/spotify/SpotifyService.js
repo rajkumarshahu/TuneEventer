@@ -9,7 +9,7 @@ class SpotifyService {
 
 		this.clientSecret = process.env.SPOTIFY_CLIENT_SECRETE;
 
-		this.redirectUri = process.env.SPOTIFY_REDIRECT_URI; // Ensure this is correctly set
+		this.redirectUri = process.env.SPOTIFY_REDIRECT_URI;
 	}
 
 	async authenticate() {
