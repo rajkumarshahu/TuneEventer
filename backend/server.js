@@ -6,7 +6,6 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const dotenv = require("dotenv");
 const cors = require("cors");
-const querystring = require("querystring");
 
 const SpotifyService = require("./src/api/spotify/SpotifyService.js");
 const TicketmasterService = require("./src/api/ticketmaster/TicketmasterService");
@@ -21,7 +20,11 @@ DatabaseService();
 const app = express();
 
 // Middleware for CORS
-app.use(cors());
+app.use(
+	cors({
+		origin: "http://localhost:3001",
+	})
+);
 
 // Middleware for logging requests to the console
 app.use((req, res, next) => {
@@ -53,7 +56,7 @@ app.use(
 );
 
 // API route for fetching events
-app.get("/api/events/:artistName", async (req, res) => {
+app.get("/ticketmaster/events/:artistName", async (req, res) => {
 	try {
 		const { artistName } = req.params;
 		const events = await ticketmasterService.fetchEvents(artistName);
@@ -64,33 +67,31 @@ app.get("/api/events/:artistName", async (req, res) => {
 	}
 });
 
+// Redirect users to Spotify for login
 app.get("/login", (req, res) => {
-	const state = crypto.randomBytes(16).toString("hex");
-	const scope =
-		"user-read-private user-read-email user-top-read user-library-read";
-	res.redirect(
-		"https://accounts.spotify.com/authorize?" +
-			querystring.stringify({
-				response_type: "code",
-				client_id: process.env.SPOTIFY_CLIENT_ID,
-				scope: scope,
-				redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
-				state: state,
-			})
-	);
+	const scopes = [
+		"user-read-private",
+		"user-read-email",
+		"user-top-read",
+		"user-library-read",
+		"playlist-read-private",
+	];
+	res.redirect(spotifyService.createAuthUrl(scopes));
 });
 
+// Handle callback from Spotify
 app.get("/callback", async (req, res) => {
-	const code = req.query.code || null;
-
 	try {
+		const { code } = req.query;
 		const data = await spotifyService.exchangeCodeForToken(code);
-
 		req.session.accessToken = data.access_token;
-		res.redirect("frontend/index.html");
+		req.session.refreshToken = data.refresh_token;
+		req.session.expiresIn = data.expires_in;
+
+		res.redirect(`http://localhost:3000/?access_token=${data.access_token}`);
 	} catch (error) {
-		console.error("Callback Error:", error);
-		res.status(500).send("Internal Server Error");
+		console.error(error);
+		res.status(500).send("An error occurred");
 	}
 });
 
@@ -114,21 +115,54 @@ app.get("/auth-link", (req, res) => {
 	res.send(`Click <a href="${authorizationUrl}">here</a> to authorize.`);
 });
 
-app.get("/api/spotify/user", async (req, res) => {
+// Endpoint to get user data
+app.get("/spotify/user", async (req, res) => {
+	if (!req.session.accessToken) {
+		return res.status(401).send("Not authenticated");
+	}
+	try {
+		const userData = await spotifyService.getUserData(req.session.accessToken);
+		res.json(userData);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Failed to fetch user data");
+	}
+});
+
+// Endpoint to get the current user's playlists
+app.get("/spotify/playlists", async (req, res) => {
 	if (!req.session.accessToken) {
 		return res.status(401).send("Not authenticated");
 	}
 
 	try {
-		const userData = await spotifyService.getUserData(req.session.accessToken);
-		res.json(userData);
+		const playlists = await spotifyService.getUserPlaylists(
+			req.session.accessToken
+		);
+		res.json(playlists);
 	} catch (error) {
 		console.error("API Error:", error);
-		res.status(500).send("Internal Server Error");
+		res.status(500).send("Failed to fetch user playlists");
 	}
 });
 
-const PORT = process.env.PORT || 3000;
+app.get("/spotify/top-artists", async (req, res) => {
+	if (!req.session.accessToken) {
+		return res.status(401).send("Not authenticated");
+	}
+
+	try {
+		const topArtists = await spotifyService.getUserTopArtists(
+			req.session.accessToken
+		);
+		res.json(topArtists);
+	} catch (error) {
+		console.error("API Error:", error);
+		res.status(500).send("Failed to fetch top artists");
+	}
+});
+
+const PORT = process.env.PORT || 4000;
 
 // Start the server
 const server = app.listen(

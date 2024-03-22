@@ -1,20 +1,15 @@
 const axios = require("axios");
 const qs = require("qs");
+const querystring = require("querystring");
+const crypto = require("crypto");
 
 class SpotifyService {
 	constructor() {
 		this.clientId = process.env.SPOTIFY_CLIENT_ID;
-		if (!this.clientId) {
-			console.error("SPOTIFY_CLIENT_ID environment variable not set");
-		}
+
 		this.clientSecret = process.env.SPOTIFY_CLIENT_SECRETE;
-		if (!this.clientSecret) {
-			console.error("SPOTIFY_CLIENT_SECRET environment variable not set");
-		}
+
 		this.redirectUri = process.env.SPOTIFY_REDIRECT_URI; // Ensure this is correctly set
-		if (!this.redirectUri) {
-			console.error("SPOTIFY_REDIRECT_URI environment variable not set");
-		}
 	}
 
 	async authenticate() {
@@ -25,7 +20,7 @@ class SpotifyService {
 				"Basic " +
 				Buffer.from(this.clientId + ":" + this.clientSecret).toString("base64"),
 		};
-		const data = qs.stringify({ grant_type: "client_credentials" });
+		const data = querystring.stringify({ grant_type: "client_credentials" });
 
 		try {
 			const response = await axios.post(url, data, { headers });
@@ -63,19 +58,75 @@ class SpotifyService {
 
 	async getUserData(accessToken) {
 		try {
-			const response = await axios.get(
-				"https://api.spotify.com/v1/me/top/artists",
-				{
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-					},
-				}
-			);
+			const response = await axios.get("https://api.spotify.com/v1/me/", {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			});
 			return response.data;
 		} catch (error) {
 			console.error("Failed to fetch user data:", error);
 			throw error;
 		}
+	}
+
+	async getUserPlaylists(accessToken) {
+		const url = "https://api.spotify.com/v1/me/playlists";
+		const headers = { Authorization: `Bearer ${accessToken}` };
+
+		try {
+			const response = await axios.get(url, { headers });
+			return response.data; // This includes items array among other data
+		} catch (error) {
+			console.error("Error fetching user playlists:", error);
+			throw error;
+		}
+	}
+
+	async getUserTopArtists(
+		accessToken,
+		timeRange = "medium_term",
+		limit = 10,
+		offset = 5
+	) {
+		const endpoint = `https://api.spotify.com/v1/me/top/artists`; // Endpoint for top artists
+		const params = new URLSearchParams({
+			time_range: timeRange,
+			limit,
+			offset,
+		});
+
+		const headers = { Authorization: `Bearer ${accessToken}` };
+		const url = `${endpoint}?${params}`;
+
+		console.log(`Making request to: ${url}`); // Debug log the full URL
+
+		try {
+			const response = await axios.get(url, { headers });
+			return response.data; // Contains an array of top artists
+		} catch (error) {
+			console.error(
+				"Error fetching user top artists:",
+				error.response || error.message
+			);
+			throw error; // Include error.response to capture Axios errors
+		}
+	}
+
+	createAuthUrl(scopes) {
+		const state = crypto.randomBytes(16).toString("hex");
+		const authQuery = querystring.stringify({
+			response_type: "code",
+			client_id: this.clientId,
+			scope: scopes.join(" "),
+			redirect_uri: this.redirectUri,
+			state: state,
+			show_dialog: true,
+		});
+
+		let auth_url = `https://accounts.spotify.com/authorize?${authQuery}`;
+
+		return auth_url;
 	}
 }
 
