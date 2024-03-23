@@ -2,14 +2,17 @@ const express = require("express");
 const path = require("path");
 const colors = require("colors");
 const crypto = require("crypto");
-const session = require("express-session");
-const MongoStore = require("connect-mongo");
 const dotenv = require("dotenv");
-const cors = require("cors");
+const session = require("express-session");
+
+const corsMiddleware = require("./src/middlewares/cors.js");
+const loggerMiddleware = require("./src/middlewares/logger.js");
+const sessionMiddleware = require("./src/middlewares/session.js");
 
 const SpotifyService = require("./src/api/spotify/SpotifyService.js");
-const TicketmasterService = require("./src/api/ticketmaster/TicketmasterService");
-const DatabaseService = require("./src/api/database/DatabaseService");
+const TicketmasterService = require("./src/api/ticketmaster/TicketmasterService.js");
+const DatabaseService = require("./src/api/database/DatabaseService.js");
+const ApiServiceProxy = require("./src/patterns/proxy/ApiServiceProxy.js");
 
 // Load env variables
 dotenv.config({ path: "./config/config.env" });
@@ -19,64 +22,28 @@ DatabaseService();
 
 const app = express();
 
-// Middleware for CORS
-// app.use(
-// 	cors({
-// 		origin: "http://localhost:3000",
-// 	})
-// );
-
-app.use(function (req, res, next) {
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header(
-		"Access-Control-Allow-Headers",
-		"Origin, X-Requested-With, Content-Type, Accept, Authorization"
-	);
-	if (req.method === "OPTIONS") {
-		res.header(
-			"Access-Control-Allow-Headers",
-			"Origin, X-Requested-With, Content-Type, Accept, Authorization"
-		);
-		res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH");
-		return res.status(200).json({});
-	}
-	next();
-});
-
-// Middleware for logging requests to the console
-app.use((req, res, next) => {
-	console.log(colors.cyan(`${req.method} ${req.originalUrl}`));
-	next();
-});
+// Use middleware
+app.use(corsMiddleware);
+app.use(loggerMiddleware);
+app.use(sessionMiddleware);
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, "public")));
 
 // Initialize services
 const spotifyService = new SpotifyService();
-const ticketmasterService = new TicketmasterService();
-
-app.use(
-	session({
-		secret: process.env.SESSION_SECRET,
-		resave: false,
-		saveUninitialized: true,
-		store: MongoStore.create({
-			mongoUrl: process.env.MONGO_URI,
-			collectionName: "sessions",
-		}),
-		cookie: {
-			secure: process.env.NODE_ENV === "production",
-			maxAge: 1000 * 60 * 60 * 24,
-		},
-	})
+const ticketMasterService = new TicketmasterService();
+const apiServiceProxy = new ApiServiceProxy(
+	spotifyService,
+	ticketMasterService
 );
 
 // API route for fetching events
 app.get("/ticketmaster/events/:artistName", async (req, res) => {
 	try {
 		const { artistName } = req.params;
-		const events = await ticketmasterService.fetchEvents(artistName);
+
+		const events = await apiServiceProxy.fetchTicketmasterData(artistName);
 		res.json(events);
 	} catch (error) {
 		console.error(colors.red(`Error: ${error.message}`));
@@ -101,14 +68,37 @@ app.get("/callback", async (req, res) => {
 	try {
 		const { code } = req.query;
 		const data = await spotifyService.exchangeCodeForToken(code);
+
+		console.log("Received token data:", data);
 		req.session.accessToken = data.access_token;
+		console.log("Session after setting token:", req.session);
+
 		req.session.refreshToken = data.refresh_token;
 		req.session.expiresIn = data.expires_in;
+
+		req.session.accessToken = data.access_token;
+		req.session.save((err) => {
+			if (err) {
+				console.error("Session save error:", err);
+			} else {
+				console.log("Session saved successfully with accessToken");
+			}
+		});
 
 		res.redirect(`http://localhost:3000/?access_token=${data.access_token}`);
 	} catch (error) {
 		console.error(error);
+		top - artists;
 		res.status(500).send("An error occurred");
+	}
+});
+
+app.get("/api/session", (req, res) => {
+	//console.log("SSSSSSSSS:", req.session.accessToken);
+	if (req.session.accessToken) {
+		res.json({ isAuthenticated: true, accessToken: req.session.accessToken });
+	} else {
+		res.json({ isAuthenticated: false });
 	}
 });
 
@@ -138,10 +128,13 @@ app.get("/spotify/user", async (req, res) => {
 		return res.status(401).send("Not authenticated");
 	}
 	try {
-		const userData = await spotifyService.getUserData(req.session.accessToken);
+		// Use apiServiceProxy instead of spotifyService directly
+		const userData = await apiServiceProxy.fetchSpotifyData("me", {
+			accessToken: req.session.accessToken,
+		});
 		res.json(userData);
 	} catch (error) {
-		console.error(error);
+		console.error("Failed to fetch user data:", error);
 		res.status(500).send("Failed to fetch user data");
 	}
 });
@@ -153,9 +146,10 @@ app.get("/spotify/playlists", async (req, res) => {
 	}
 
 	try {
-		const playlists = await spotifyService.getUserPlaylists(
-			req.session.accessToken
-		);
+		// Use ApiServiceProxy to fetch Spotify data
+		const playlists = await apiServiceProxy.fetchSpotifyData("me/playlists", {
+			accessToken: req.session.accessToken,
+		});
 		res.json(playlists);
 	} catch (error) {
 		console.error("API Error:", error);
@@ -164,17 +158,21 @@ app.get("/spotify/playlists", async (req, res) => {
 });
 
 app.get("/spotify/top-artists", async (req, res) => {
+	//console.log("req: ");
+	//console.log(req.session.accessToken);
 	if (!req.session.accessToken) {
 		return res.status(401).send("Not authenticated");
 	}
 
 	try {
-		const topArtists = await spotifyService.getUserTopArtists(
+		// Utilizing ApiServiceProxy to fetch Spotify data
+		const topArtists = await apiServiceProxy.fetchSpotifyData(
+			"me/top/artists",
 			req.session.accessToken
 		);
 		res.json(topArtists);
 	} catch (error) {
-		console.error("API Error:", error);
+		//console.error("API Error:", error);
 		res.status(500).send("Failed to fetch top artists");
 	}
 });

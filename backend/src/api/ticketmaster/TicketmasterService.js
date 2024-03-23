@@ -1,12 +1,12 @@
 const axios = require("axios");
-
 class TicketmasterService {
 	constructor() {
 		this.apiKey = process.env.TICKETMASTER_API;
+		this.baseUrl = "https://app.ticketmaster.com/discovery/v2/";
 	}
 
-	async fetchEvents(artistName) {
-		const url = `https://app.ticketmaster.com/discovery/v2/events.json?keyword=${encodeURIComponent(
+	async fetchArtistEvents(artistName) {
+		const url = `${this.baseUrl}events.json?keyword=${encodeURIComponent(
 			artistName
 		)}&apikey=${this.apiKey}`;
 
@@ -14,12 +14,10 @@ class TicketmasterService {
 			const response = await axios.get(url);
 			return response.data._embedded.events;
 		} catch (error) {
-			console.error("Error fetching events from Ticketmaster:", error);
-			return [];
+			console.error("Error fetching artist events from Ticketmaster:", error);
+			throw error;
 		}
 	}
-
-	// Additional methods as needed
 }
 
 module.exports = TicketmasterService;

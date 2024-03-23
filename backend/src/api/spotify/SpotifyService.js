@@ -6,9 +6,7 @@ const crypto = require("crypto");
 class SpotifyService {
 	constructor() {
 		this.clientId = process.env.SPOTIFY_CLIENT_ID;
-
 		this.clientSecret = process.env.SPOTIFY_CLIENT_SECRETE;
-
 		this.redirectUri = process.env.SPOTIFY_REDIRECT_URI;
 	}
 
@@ -32,6 +30,13 @@ class SpotifyService {
 		}
 	}
 
+	async getToken() {
+		if (!this.token) {
+			await this.authenticate();
+		}
+		return this.token;
+	}
+
 	async exchangeCodeForToken(code) {
 		const url = "https://accounts.spotify.com/api/token";
 		const data = qs.stringify({
@@ -49,46 +54,12 @@ class SpotifyService {
 
 		try {
 			const response = await axios.post(url, data, { headers });
-			return response.data; // This includes access_token, refresh_token, etc.
+			return response.data;
 		} catch (error) {
 			console.error("Error exchanging code for token:", error);
 			throw error;
 		}
 	}
-
-	// async exchangeCodeForToken(code) {
-	// 	const url = "https://accounts.spotify.com/api/token";
-	// 	const data = qs.stringify({
-	// 		grant_type: "authorization_code",
-	// 		code: code,
-	// 		redirect_uri: this.redirectUri,
-	// 	});
-
-	// 	// Create the basic auth string using clientId and clientSecret
-	// 	const authString = `${this.clientId}:${this.clientSecret}`;
-
-	// 	// Convert to base64
-	// 	let base64Auth = Buffer.from(authString).toString("base64");
-
-	// 	// Make the base64 encoding URL-safe by replacing '+' with '-', '/' with '_' and removing '=' padding
-	// 	const urlSafeBase64Auth = base64Auth
-	// 		.replace(/\+/g, "-")
-	// 		.replace(/\//g, "_")
-	// 		.replace(/=+$/, "");
-
-	// 	const headers = {
-	// 		"Content-Type": "application/x-www-form-urlencoded",
-	// 		Authorization: `Basic ${urlSafeBase64Auth}`,
-	// 	};
-
-	// 	try {
-	// 		const response = await axios.post(url, data, { headers });
-	// 		return response.data; // This includes access_token, refresh_token, etc.
-	// 	} catch (error) {
-	// 		console.error("Error exchanging code for token:", error);
-	// 		throw error;
-	// 	}
-	// }
 
 	async getUserData(accessToken) {
 		try {
@@ -110,7 +81,7 @@ class SpotifyService {
 
 		try {
 			const response = await axios.get(url, { headers });
-			return response.data; // This includes items array among other data
+			return response.data;
 		} catch (error) {
 			console.error("Error fetching user playlists:", error);
 			throw error;
@@ -123,7 +94,7 @@ class SpotifyService {
 		limit = 10,
 		offset = 5
 	) {
-		const endpoint = `https://api.spotify.com/v1/me/top/artists`; // Endpoint for top artists
+		const endpoint = `https://api.spotify.com/v1/me/top/artists`;
 		const params = new URLSearchParams({
 			time_range: timeRange,
 			limit,
@@ -133,7 +104,7 @@ class SpotifyService {
 		const headers = { Authorization: `Bearer ${accessToken}` };
 		const url = `${endpoint}?${params}`;
 
-		console.log(`Making request to: ${url}`); // Debug log the full URL
+		console.log(`Making request to: ${url}`);
 
 		try {
 			const response = await axios.get(url, { headers });
