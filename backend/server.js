@@ -88,7 +88,7 @@ app.get("/callback", async (req, res) => {
 		res.redirect(`http://localhost:3000/?access_token=${data.access_token}`);
 	} catch (error) {
 		console.error(error);
-		top - artists;
+		// top-artists;
 		res.status(500).send("An error occurred");
 	}
 });
