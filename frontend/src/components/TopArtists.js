@@ -2,44 +2,76 @@ import React, { useEffect, useState } from "react";
 
 const TopArtists = () => {
 	const [topArtists, setTopArtists] = useState(null);
-	// const [loading, setLoading] = useState(true); // Add loading state
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
-		const queryParams = new URLSearchParams(window.location.search);
-		const accessToken = queryParams.get("access_token");
-
-		const fetchTopArtists = async () => {
+		const getSession = async () => {
 			try {
-				const response = await fetch(
-					"http://localhost:4000/spotify/top-artists",
+				const sessionResponse = await fetch(
+					"http://localhost:4000/api/session",
 					{
-						headers: {
-							Authorization: `Bearer ${accessToken}`,
-						},
+						credentials: "include",
 					}
 				);
 
-				if (!response.ok) {
-					throw new Error("Failed to fetch top artists");
+				if (!sessionResponse.ok) {
+					throw new Error("Session check failed");
 				}
+				const data = await sessionResponse.json();
+				console.log("Session Data:", data);
 
-				const data = await response.json();
-				setTopArtists(data.items);
-				// setLoading(false);
+				const { isAuthenticated, accessToken } = data;
+
+				if (!isAuthenticated || !accessToken) {
+					throw new Error("Not authenticated or no access token available");
+				}
+				return accessToken;
 			} catch (error) {
-				console.error("Error:", error);
-				// setLoading(false);
+				console.error("Error checking session:", error);
+				setLoading(false);
+				return null; // Return null explicitly on error
 			}
 		};
 
-		if (accessToken) {
-			fetchTopArtists();
-		}
+		const fetchTopArtists = async (accessToken) => {
+			try {
+				if (accessToken) {
+					const response = await fetch(
+						"http://localhost:4000/spotify/top-artists",
+						{
+							method: "GET",
+							credentials: "include",
+						}
+					);
+
+					if (!response.ok) {
+						throw new Error("Failed to fetch top artists");
+					}
+
+					const data = await response.json();
+					setTopArtists(data.items);
+					setLoading(false);
+				} else {
+					throw new Error("Could not authenticate");
+				}
+			} catch (error) {
+				console.error("Error fetching top artists:", error);
+				setLoading(false);
+			}
+		};
+
+		getSession().then((accessToken) => {
+			if (accessToken) {
+				fetchTopArtists(accessToken);
+			} else {
+				setLoading(false);
+			}
+		});
 	}, []);
 
-	// if (loading) {
-	// 	return <div>Loading top artists...</div>;
-	// }
+	if (loading) {
+		return <div>Loading top artists...</div>;
+	}
 
 	if (!topArtists) {
 		return <div>No top artists data available.</div>;
