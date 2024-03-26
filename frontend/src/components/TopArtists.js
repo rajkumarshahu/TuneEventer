@@ -8,7 +8,8 @@ const TopArtists = () => {
 		const getSession = async () => {
 			try {
 				const sessionResponse = await fetch(
-					"http://localhost:4000/api/session",
+					"http://localhost:4000/auth/session",
+					// "https://tuneeventer-backend.onrender.com/auth/session",
 					{
 						credentials: "include",
 					}
@@ -29,7 +30,7 @@ const TopArtists = () => {
 			} catch (error) {
 				console.error("Error checking session:", error);
 				setLoading(false);
-				return null; // Return null explicitly on error
+				return null;
 			}
 		};
 
@@ -38,6 +39,7 @@ const TopArtists = () => {
 				if (accessToken) {
 					const response = await fetch(
 						"http://localhost:4000/spotify/top-artists",
+						// "https://tuneeventer-backend.onrender.com/spotify/top-artists",
 						{
 							method: "GET",
 							credentials: "include",

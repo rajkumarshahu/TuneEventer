@@ -14,11 +14,20 @@ const TicketmasterService = require("./src/api/ticketmaster/TicketmasterService.
 const DatabaseService = require("./src/api/database/DatabaseService.js");
 const ApiServiceProxy = require("./src/patterns/proxy/ApiServiceProxy.js");
 
+const EventFactory = require("./src/patterns/factory/EventFactory");
+
 // Load env variables
 dotenv.config({ path: "./config/config.env" });
 
 // Connect to database
 DatabaseService();
+
+// Route files
+const users = require("./src/routes/users.route.js");
+const events = require("./src/routes/events.route.js");
+const authRoutes = require("./src/routes/spotifyAuth.route.js");
+const ticketmasterRoutes = require("./src/routes/ticketmaster.route.js");
+// const spotifyRoutes = require("./src/routes/spotify.route.js");
 
 const app = express();
 
@@ -26,6 +35,9 @@ const app = express();
 app.use(corsMiddleware);
 app.use(loggerMiddleware);
 app.use(sessionMiddleware);
+
+// Body parser
+app.use(express.json());
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, "public")));
@@ -38,88 +50,37 @@ const apiServiceProxy = new ApiServiceProxy(
 	ticketMasterService
 );
 
-// API route for fetching events
-app.get("/ticketmaster/events/:artistName", async (req, res) => {
+// Endpoint for factory events
+app.get("/factory/check", async (req, res) => {
+	// Example usage
+	const concertData = {
+		type: "Concert",
+		name: "Rocking the Arena",
+		date: "2023-09-12",
+		venue: "The Grand Arena",
+		artist: "The Rockers",
+		genre: "Rock",
+	};
+
+	const festivalData = {
+		type: "Festival",
+		name: "Summer Sounds Festival",
+		date: "2023-08-05",
+		venue: "Beachside Park",
+		lineup: ["DJ Beat", "The Groovers", "Melody Queens"],
+	};
+
 	try {
-		const { artistName } = req.params;
+		const concert = EventFactory.createEvent(concertData);
+		console.log(concert.getDescription()); // Output description of the concert
+		console.log(concert.getArtistLineup()); // Output the artist performing
 
-		const events = await apiServiceProxy.fetchTicketmasterData(artistName);
-		res.json(events);
+		const festival = EventFactory.createEvent(festivalData);
+		console.log(festival.getDescription()); // Output description of the festival
+		console.log(festival.getFestivalLineup()); // Output the festival lineup
 	} catch (error) {
-		console.error(colors.red(`Error: ${error.message}`));
-		res.status(500).send("Server Error");
+		console.error(error.message);
 	}
-});
-
-// Redirect users to Spotify for login
-app.get("/login", (req, res) => {
-	const scopes = [
-		"user-read-private",
-		"user-read-email",
-		"user-top-read",
-		"user-library-read",
-		"playlist-read-private",
-	];
-	res.redirect(spotifyService.createAuthUrl(scopes));
-});
-
-// Handle callback from Spotify
-app.get("/callback", async (req, res) => {
-	try {
-		const { code } = req.query;
-		const data = await spotifyService.exchangeCodeForToken(code);
-
-		console.log("Received token data:", data);
-		req.session.accessToken = data.access_token;
-		console.log("Session after setting token:", req.session);
-
-		req.session.refreshToken = data.refresh_token;
-		req.session.expiresIn = data.expires_in;
-
-		req.session.accessToken = data.access_token;
-		req.session.save((err) => {
-			if (err) {
-				console.error("Session save error:", err);
-			} else {
-				console.log("Session saved successfully with accessToken");
-			}
-		});
-
-		res.redirect(`http://localhost:3000/?access_token=${data.access_token}`);
-	} catch (error) {
-		console.error(error);
-		// top-artists;
-		res.status(500).send("An error occurred");
-	}
-});
-
-app.get("/api/session", (req, res) => {
-	//console.log("SSSSSSSSS:", req.session.accessToken);
-	if (req.session.accessToken) {
-		res.json({ isAuthenticated: true, accessToken: req.session.accessToken });
-	} else {
-		res.json({ isAuthenticated: false });
-	}
-});
-
-// Route to generate and display the Spotify authorization link
-app.get("/auth-link", (req, res) => {
-	const state = crypto.randomBytes(16).toString("hex");
-	const scopes = [
-		"user-read-private",
-		"user-read-email",
-		"user-top-read",
-		"user-library-read",
-	];
-	const redirectUri = encodeURIComponent(process.env.SPOTIFY_REDIRECT_URI);
-
-	const authorizationUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${
-		process.env.SPOTIFY_CLIENT_ID
-	}&scope=${encodeURIComponent(
-		scopes.join(" ")
-	)}&redirect_uri=${redirectUri}&state=${state}`;
-
-	res.send(`Click <a href="${authorizationUrl}">here</a> to authorize.`);
 });
 
 // Endpoint to get user data
@@ -176,6 +137,13 @@ app.get("/spotify/top-artists", async (req, res) => {
 		res.status(500).send("Failed to fetch top artists");
 	}
 });
+
+// Mount routers
+app.use("/users", users);
+app.use("/events", events);
+app.use("/auth", authRoutes);
+app.use("/ticketmaster", ticketmasterRoutes);
+// app.use("/spotify", spotifyRoutes);
 
 const PORT = process.env.PORT || 4000;
 

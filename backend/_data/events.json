@@ -1,0 +1,22 @@
+[
+	{
+		"name": "Music Festival 2024",
+		"date": "2024-06-15T00:00:00.000Z",
+		"genre": ["Electronic", "Pop"],
+		"location": "Central Park, New York",
+		"detailsUrl": "https://example.com/events/music-festival-2024",
+		"spotifyArtists": ["ArtistName1", "ArtistName2"],
+		"createdAt": "2024-03-23T10:00:00.000Z",
+		"updatedAt": "2024-03-23T10:00:00.000Z"
+	},
+	{
+		"name": "Jazz Nights",
+		"date": "2024-07-20T00:00:00.000Z",
+		"genre": ["Jazz"],
+		"location": "Jazz Club, Chicago",
+		"detailsUrl": "https://example.com/events/jazz-nights",
+		"spotifyArtists": ["JazzArtist1", "JazzArtist2"],
+		"createdAt": "2024-03-23T10:00:00.000Z",
+		"updatedAt": "2024-03-23T10:00:00.000Z"
+	}
+]
