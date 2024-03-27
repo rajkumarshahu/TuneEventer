@@ -1,5 +1,14 @@
 const SpotifyService = require("../api/spotify/SpotifyService");
 const spotifyService = new SpotifyService();
+const UserModel = require("../models/UserModel");
+const TicketmasterService = require("../api/ticketmaster/TicketmasterService.js");
+
+const ticketMasterService = new TicketmasterService();
+const ApiServiceProxy = require("../patterns/proxy/ApiServiceProxy.js");
+const apiServiceProxy = new ApiServiceProxy(
+	spotifyService,
+	ticketMasterService
+);
 
 /* Initiates the Spotify login process by redirecting the user to 
    the Spotify authorization page with the required scopes.*/
@@ -21,9 +30,30 @@ exports.callback = async (req, res) => {
 		const { code } = req.query;
 		const data = await spotifyService.exchangeCodeForToken(code);
 		const user_data = await spotifyService.getUserData(data.access_token);
-		//const user_data = await spotifyService.getUserData(data.access_token);
 
 		// save in user collection.
+		/*const user = await UserModel.create({
+			spotifyId: user_data.id,
+			email: user_data.email,
+			displayName: user_data.display_name,
+			profileUrl: user_data.external_urls.spotify,
+			accessToken: data.access_token,
+			refreshToken: data.refresh_token,
+		});*/
+
+		// get user's top 10 artists
+		const topArtists = await apiServiceProxy.fetchSpotifyData(
+			"me/top/artists",
+			data.access_token
+		);
+
+		const artists = topArtists.items.map((a) => a.name);
+
+		// get user's genre
+
+		// save user's meta information
+
+		//
 
 		// CALL eventmaster with user's genre and country, => save events for the user
 

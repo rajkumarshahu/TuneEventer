@@ -56,3 +56,5 @@ exports.deleteUser = async (req, res, next) => {
 		res.status(200).json({ success: true, data: {} });
 	} catch (error) {}
 };
+
+// save user in db.
