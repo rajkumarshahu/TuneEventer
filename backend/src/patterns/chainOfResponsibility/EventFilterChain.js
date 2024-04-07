@@ -5,64 +5,45 @@ class Handler {
 
 	setNext(handler) {
 		this.nextHandler = handler;
-		return handler;
+		return handler; // Facilitates chaining
 	}
 
-	handle(request) {
+	handle(query, request) {
 		if (this.nextHandler) {
-			return this.nextHandler.handle(request);
-		} else {
-			throw new Error("End of chain reached without processing request");
+			return this.nextHandler.handle(query, request);
 		}
 	}
 }
 
 class GenreFilter extends Handler {
-	handle(request) {
+	handle(query, request) {
 		if (request.genre) {
-			// Process request based on genre
-			console.log(`Filtering events by genre: ${request.genre}`);
-			// Assuming the request is an object with an events array:
-			request.events = request.events.filter(
-				(event) => event.genre === request.genre
-			);
+			console.log(`Adding genre filter to MongoDB query: ${request.genre}`);
+			query.genre = request.genre;
 		}
-		return super.handle(request);
+		return super.handle(query, request);
 	}
 }
 
 class DateFilter extends Handler {
-	handle(request) {
-		if (request.date) {
-			// Process request based on date
-			console.log(`Filtering events by date: ${request.date}`);
-			request.events = request.events.filter(
-				(event) => event.date === request.date
+	handle(query, request) {
+		//  check for fromDate and toDate
+		if (request.fromDate && request.toDate) {
+			console.log(
+				`Adding date range filter to MongoDB query: ${request.fromDate} to ${request.toDate}`
 			);
+
+			const fromDate = new Date(request.fromDate);
+			const toDate = new Date(request.toDate);
+			toDate.setDate(toDate.getDate() + 1); // the toDate to include all events on the end date
+
+			query.date = {
+				$gte: fromDate, // Greater than or equal to the start of the from date
+				$lt: toDate, // Less than the start of the day after the to date
+			};
 		}
-		return super.handle(request);
+		return super.handle(query, request);
 	}
 }
 
-// Usage
-const genreFilter = new GenreFilter();
-const dateFilter = new DateFilter();
-
-genreFilter.setNext(dateFilter);
-
-// Example request object
-const request = {
-	genre: "Rock",
-	date: "2023-09-12",
-	events: [
-		//... array of event objects
-	],
-};
-
-// Start the processing chain
-try {
-	genreFilter.handle(request);
-	console.log("Filtered events:", request.events);
-} catch (error) {
-	console.error(error.message);
-}
+module.exports = { GenreFilter, DateFilter };

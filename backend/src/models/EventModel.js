@@ -1,5 +1,16 @@
 const mongoose = require("mongoose");
 
+const VenueSchema = new mongoose.Schema({
+	name: String,
+	address: {
+		line1: String,
+	},
+	city: String,
+	state: String,
+	postalCode: String,
+	country: String,
+});
+
 const EventSchema = new mongoose.Schema(
 	{
 		name: {
@@ -10,16 +21,27 @@ const EventSchema = new mongoose.Schema(
 			type: Date,
 			required: true,
 		},
-		genre: [String],
+		genre: {
+			type: [String],
+			required: true,
+		},
 		location: {
 			type: String,
 			required: true,
 		},
-		detailsUrl: {
+		url: {
 			type: String,
 			required: true,
 		},
-		spotifyArtists: [String],
+		imageUrl: {
+			type: String,
+			required: true,
+		},
+		spotifyArtists: {
+			type: [String],
+			required: true,
+		},
+		venue: VenueSchema,
 	},
 	{ timestamps: true }
 );

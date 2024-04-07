@@ -1,4 +1,5 @@
 const express = require("express");
+const { isAuthenticated } = require("../middlewares/authenticate");
 const {
 	getUsers,
 	getUser,
@@ -8,8 +9,11 @@ const {
 
 const router = express.Router({ mergeParams: true });
 
-router.route("/").get(getUsers).post(saveUser);
+// Applying middleware to protect all routes in this router
+// router.use(isAuthenticated);
 
+// Only authenticated users can access these routes
+router.route("/").get(getUsers).post(saveUser);
 router.route("/:id").get(getUser).delete(deleteUser);
 
 module.exports = router;

@@ -52,6 +52,9 @@ class SpotifyService {
 				Buffer.from(this.clientId + ":" + this.clientSecret).toString("base64"),
 		};
 
+		console.log(headers);
+		console.log(data);
+
 		try {
 			const response = await axios.post(url, data, { headers });
 			return response.data;
@@ -114,7 +117,7 @@ class SpotifyService {
 				"Error fetching user top artists:",
 				error.response || error.message
 			);
-			throw error; // Include error.response to capture Axios errors
+			throw error;
 		}
 	}
 

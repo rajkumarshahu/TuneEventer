@@ -14,7 +14,7 @@ class EventFactory {
 			case "festival":
 				return new FestivalEvent(data);
 			default:
-				throw new Error("Unknown event type: " + data.type);
+			// throw new Error("Unknown event type: " + data.type);
 		}
 	}
 }

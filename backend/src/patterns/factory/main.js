@@ -1,6 +1,5 @@
 const EventFactory = require("./EventFactory");
 
-// Example usage
 const concertData = {
 	type: "Concert",
 	name: "Rocking the Arena",

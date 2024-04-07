@@ -58,8 +58,6 @@ class ApiServiceProxy {
 			throw error;
 		}
 	}
-
-	// search ticket master by genre
 }
 
 module.exports = ApiServiceProxy;

@@ -5,11 +5,24 @@ const TicketmasterService = require("../api/ticketmaster/TicketmasterService.js"
 
 const ticketMasterService = new TicketmasterService();
 const ApiServiceProxy = require("../patterns/proxy/ApiServiceProxy.js");
+const EventFactory = require("../patterns/factory/EventFactory.js");
 const apiServiceProxy = new ApiServiceProxy(
 	spotifyService,
 	ticketMasterService
 );
 
+function getValidDate(eventData) {
+	if (eventData.dates.start.dateTime) {
+		return new Date(eventData.dates.start.dateTime);
+	} else if (eventData.dates.start.localDate) {
+		// Assuming localDate is in 'YYYY-MM-DD' format; adjust if necessary
+		return new Date(eventData.dates.start.localDate);
+	} else {
+		// Fallback to the current date or another sensible default
+		console.log("Fallback to current date for event:", eventData.name);
+		return new Date();
+	}
+}
 /* Initiates the Spotify login process by redirecting the user to 
    the Spotify authorization page with the required scopes.*/
 exports.login = (req, res) => {
@@ -31,37 +44,126 @@ exports.callback = async (req, res) => {
 		const data = await spotifyService.exchangeCodeForToken(code);
 		const user_data = await spotifyService.getUserData(data.access_token);
 
-		// save in user collection.
-		/*const user = await UserModel.create({
-			spotifyId: user_data.id,
-			email: user_data.email,
-			displayName: user_data.display_name,
-			profileUrl: user_data.external_urls.spotify,
-			accessToken: data.access_token,
-			refreshToken: data.refresh_token,
-		});*/
+		let user = await UserModel.findOne({ spotifyId: user_data.id });
+		if (user) {
+			user.email = user_data.email;
+			user.displayName = user_data.display_name;
+			user.profileUrl = user_data.external_urls.spotify;
+			user.accessToken = data.access_token;
+			user.refreshToken = data.refresh_token;
+		} else {
+			user = new UserModel({
+				spotifyId: user_data.id,
+				email: user_data.email,
+				displayName: user_data.display_name,
+				profileUrl: user_data.external_urls.spotify,
+				accessToken: data.access_token,
+				refreshToken: data.refresh_token,
+			});
+		}
+		await user.save();
 
-		// get user's top 10 artists
 		const topArtists = await apiServiceProxy.fetchSpotifyData(
 			"me/top/artists",
 			data.access_token
 		);
+		const genres = topArtists.items.flatMap((artist) => artist.genres);
+		const genreCounts = genres.reduce((counts, genre) => {
+			counts[genre] = (counts[genre] || 0) + 1;
+			return counts;
+		}, {});
+		const sortedGenres = Object.entries(genreCounts).sort(
+			(a, b) => b[1] - a[1]
+		);
+		const top5Genres = sortedGenres.slice(0, 5).map((genre) => genre[0]);
 
-		const artists = topArtists.items.map((a) => a.name);
+		const userCountry = user_data.country || "US";
 
-		// get user's genre
+		const eventsData = await ticketMasterService.fetchEventsByGenreAndCountry(
+			top5Genres,
+			userCountry
+		);
 
-		// save user's meta information
+		for (const eventData of eventsData) {
+			let locationString =
+				eventData._embedded?.venues?.[0]?.name ?? "Location not available";
 
-		//
+			let venueName =
+				eventData._embedded?.venues?.[0]?.name ?? "Venue name not available";
+			let address =
+				eventData._embedded?.venues?.[0]?.address?.line1 ??
+				"Address not available";
+			let city =
+				eventData._embedded?.venues?.[0]?.city?.name ?? "City not available";
+			let state =
+				eventData._embedded?.venues?.[0]?.state?.stateCode ??
+				"State not available";
+			let postalCode =
+				eventData._embedded?.venues?.[0]?.postalCode ??
+				"Postal code not available";
+			let country =
+				eventData._embedded?.venues?.[0]?.country?.countryCode ??
+				"Country not available";
 
-		// CALL eventmaster with user's genre and country, => save events for the user
+			let imageUrl =
+				eventData.images[0].url ??
+				"https://static.wixstatic.com/media/10eae1_c0388d04e92c4e9180533cf98f891a24~mv2.jpg/v1/fill/w_772,h_468,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/B%26W%20Crowd.jpg";
 
-		//
+			let eventType = "unknown";
+			let festival_lineup = "";
+			let concert_genre = "";
+			let concert_artist = "";
+			if (eventData.classifications) {
+				eventData.classifications.forEach((classification) => {
+					if (
+						classification.segment &&
+						classification.segment.name.toLowerCase() === "music"
+					) {
+						if (
+							classification.genre &&
+							classification.genre.name.toLowerCase().includes("festival")
+						) {
+							eventType = "Festival";
+							festival_lineup =
+								eventData._embedded?.attractions
+									?.map((artist) => artist.name)
+									.join(", ") || "Lineup not available";
+						} else {
+							eventType = "Concert";
+							concert_genre =
+								classification.genre?.name || "Genre not specified";
+							concert_artist =
+								eventData._embedded?.attractions?.[0]?.name ||
+								"Artist not specified";
+						}
+					}
+				});
+			}
 
-		// req.session.displayName = user_data.display_name;
-		// req.session.country = user_data.country;
-		// req.session.email = user_data.email;
+			// create a new object for event factory
+			let event_factory = EventFactory.createEvent({
+				type: eventType,
+				date: getValidDate(eventData),
+				name: eventData.name,
+				genre: concert_genre,
+				artist: concert_artist,
+				lineup: festival_lineup,
+				location: locationString,
+				url: eventData.url,
+				imageUrl: imageUrl,
+				venue: {
+					name: venueName,
+					address: address,
+					city: city,
+					state: state,
+					postalCode: postalCode,
+					country: country,
+				},
+				spotifyArtists: topArtists.items.map((artist) => artist.name),
+			});
+			event_factory.saveEvent();
+		}
+
 		req.session.accessToken = data.access_token;
 		req.session.refreshToken = data.refresh_token;
 		req.session.expiresIn = data.expires_in;
@@ -70,12 +172,13 @@ exports.callback = async (req, res) => {
 				console.error("Session save error:", err);
 				return res.status(500).send("Error saving the session");
 			}
-			//res.redirect(`http://localhost:3000/?access_token=${data.access_token}`);
-			res.redirect(`http://localhost:3000/top-artists`);
+			res.redirect(`http://localhost:3000/home`);
 		});
 	} catch (error) {
-		console.error(error);
-		res.status(500).send("An error occurred during the callback");
+		//console.error("An error occurred during the callback:", error);
+		if (!res.headersSent) {
+			//res.status(500).send("An error occurred during the callback");
+		}
 	}
 };
 
@@ -84,7 +187,7 @@ exports.getSession = (req, res) => {
 	if (req.session.accessToken) {
 		res.json({ isAuthenticated: true, accessToken: req.session.accessToken });
 	} else {
-		res.json({ isAuthenticated: false });
+		res.redirect(`http://localhost:3000/home`);
 	}
 };
 

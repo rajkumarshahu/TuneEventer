@@ -33,9 +33,6 @@ exports.getEvent = async (req, res, next) => {
 //@access      Private
 exports.saveEvent = async (req, res, next) => {
 	try {
-		// Add user to req,body
-		// req.body.user = req.user.id;
-
 		const event = await EventModel.create(req.body);
 		res.status(201).json({
 			success: true,
