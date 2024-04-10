@@ -1,15 +1,26 @@
+/**
+ * The SpotifyService class encapsulates the interaction with the Spotify Web API.
+ * It provides methods for authenticating with Spotify, exchanging authorization codes for tokens,
+ * fetching user data, and generating authorization URLs.
+ */
 const axios = require("axios");
 const qs = require("qs");
 const querystring = require("querystring");
 const crypto = require("crypto");
 
 class SpotifyService {
+	/**
+	 * Initializes the service with Spotify client credentials and redirect URI from environment variables.
+	 */
 	constructor() {
 		this.clientId = process.env.SPOTIFY_CLIENT_ID;
 		this.clientSecret = process.env.SPOTIFY_CLIENT_SECRETE;
 		this.redirectUri = process.env.SPOTIFY_REDIRECT_URI;
 	}
 
+	/**
+	 * Authenticates with Spotify to get an application access token.
+	 */
 	async authenticate() {
 		const url = "https://accounts.spotify.com/api/token";
 		const headers = {
@@ -30,6 +41,10 @@ class SpotifyService {
 		}
 	}
 
+	/**
+	 * Gets the current token, authenticating if necessary.
+	 * @returns {Promise<string>} The current access token.
+	 */
 	async getToken() {
 		if (!this.token) {
 			await this.authenticate();
@@ -37,6 +52,11 @@ class SpotifyService {
 		return this.token;
 	}
 
+	/**
+	 * Exchanges an authorization code for an access token and refresh token.
+	 * @param {string} code - The authorization code to exchange.
+	 * @returns {Promise<Object>} An object containing the access and refresh tokens.
+	 */
 	async exchangeCodeForToken(code) {
 		const url = "https://accounts.spotify.com/api/token";
 		const data = qs.stringify({
@@ -52,9 +72,6 @@ class SpotifyService {
 				Buffer.from(this.clientId + ":" + this.clientSecret).toString("base64"),
 		};
 
-		console.log(headers);
-		console.log(data);
-
 		try {
 			const response = await axios.post(url, data, { headers });
 			return response.data;
@@ -64,6 +81,11 @@ class SpotifyService {
 		}
 	}
 
+	/**
+	 * Fetches the authenticated user's data.
+	 * @param {string} accessToken - The access token for the authenticated user.
+	 * @returns {Promise<Object>} An object containing the user's Spotify profile data.
+	 */
 	async getUserData(accessToken) {
 		try {
 			const response = await axios.get("https://api.spotify.com/v1/me/", {
@@ -78,49 +100,11 @@ class SpotifyService {
 		}
 	}
 
-	async getUserPlaylists(accessToken) {
-		const url = "https://api.spotify.com/v1/me/playlists";
-		const headers = { Authorization: `Bearer ${accessToken}` };
-
-		try {
-			const response = await axios.get(url, { headers });
-			return response.data;
-		} catch (error) {
-			console.error("Error fetching user playlists:", error);
-			throw error;
-		}
-	}
-
-	async getUserTopArtists(
-		accessToken,
-		timeRange = "medium_term",
-		limit = 10,
-		offset = 5
-	) {
-		const endpoint = `https://api.spotify.com/v1/me/top/artists`;
-		const params = new URLSearchParams({
-			time_range: timeRange,
-			limit,
-			offset,
-		});
-
-		const headers = { Authorization: `Bearer ${accessToken}` };
-		const url = `${endpoint}?${params}`;
-
-		console.log(`Making request to: ${url}`);
-
-		try {
-			const response = await axios.get(url, { headers });
-			return response.data; // Contains an array of top artists
-		} catch (error) {
-			console.error(
-				"Error fetching user top artists:",
-				error.response || error.message
-			);
-			throw error;
-		}
-	}
-
+	/**
+	 * Creates a URL to initiate the Spotify authorization process.
+	 * @param {Array<string>} scopes - The scopes for which to request permission.
+	 * @returns {string} The URL to redirect the user to for authorization.
+	 */
 	createAuthUrl(scopes) {
 		const state = crypto.randomBytes(16).toString("hex");
 		const authQuery = querystring.stringify({
