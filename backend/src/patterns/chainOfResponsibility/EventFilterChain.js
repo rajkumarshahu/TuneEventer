@@ -41,7 +41,6 @@ class GenreFilter extends Handler {
 	 */
 	handle(query, request) {
 		if (request.genre) {
-			console.log(`Adding genre filter to MongoDB query: ${request.genre}`);
 			query.genre = request.genre;
 		}
 		return super.handle(query, request); // Passes control to the next handler in the chain
@@ -60,10 +59,6 @@ class DateFilter extends Handler {
 	 */
 	handle(query, request) {
 		if (request.fromDate && request.toDate) {
-			console.log(
-				`Adding date range filter to MongoDB query: ${request.fromDate} to ${request.toDate}`
-			);
-
 			const fromDate = new Date(request.fromDate);
 			const toDate = new Date(request.toDate);
 			toDate.setDate(toDate.getDate() + 1); // Include all events on the end date

@@ -43,7 +43,6 @@ class ConcertEvent extends Event {
 				venue: this.venue,
 			});
 		} else {
-			console.log("Updating existing concert event");
 			// If found, update the artist and genre of the existing event
 			existingEvent.artist = this.artist;
 			existingEvent.genre = this.genre;

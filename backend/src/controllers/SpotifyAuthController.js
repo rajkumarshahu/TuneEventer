@@ -123,8 +123,6 @@ exports.callback = async (req, res) => {
 		const data = await spotifyService.exchangeCodeForToken(code);
 		const user_data = await spotifyService.getUserData(data.access_token);
 
-		console.log("user_data:", user_data.country);
-
 		let userCountry = user_data.country || "US";
 
 		let user = await UserModel.findOne({ spotifyId: user_data.id });

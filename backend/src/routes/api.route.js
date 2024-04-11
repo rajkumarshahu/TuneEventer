@@ -41,17 +41,14 @@ router.get("/profile", async (req, res) => {
  * to process genre and date filters on event queries.
  */
 router.get("/events", async (req, res) => {
-	console.log("Query parameters received:", req.query);
 	try {
 		const query = {}; // Initialize MongoDB query object
-		console.log("Initial query:", query);
 
 		const request = {
 			genre: req.query.genre,
 			fromDate: req.query.fromDate,
 			toDate: req.query.toDate,
 		};
-		console.log("Request parameters:", request);
 
 		// Setup chain of responsibility for filtering
 		const genreFilter = new GenreFilter();
@@ -60,11 +57,10 @@ router.get("/events", async (req, res) => {
 
 		// Process the query through the filters
 		genreFilter.handle(query, request);
-		console.log("Processed query:", query);
 
 		// Fetch and return events based on the processed query
 		const events = await EventModel.find(query); // Query all events using the base model
-		console.log("Found events:", events.length);
+
 		res.json(events);
 	} catch (error) {
 		// Log any errors and respond with a 500 status.
